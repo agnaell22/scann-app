@@ -38,7 +38,7 @@ class BridgeSheetPage extends StatefulWidget {
 class _BridgeSheetPageState extends State<BridgeSheetPage> {
   final _valueController = TextEditingController();
   final _endpointController = TextEditingController(
-    text: 'http://192.168.100.4:3000/v1/values',
+    text: 'https://scann-app-seven.vercel.app/v1/values',
   );
   
   String? _pairedToken;

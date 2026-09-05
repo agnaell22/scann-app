@@ -10,18 +10,17 @@
   <DefaultLocale>pt-BR</DefaultLocale>
   <DisplayName DefaultValue="BridgeSheet" />
   <Description DefaultValue="Receba dados do aplicativo móvel na célula ativa do Excel." />
-  <IconUrl DefaultValue="https://app.bridgesheet.app/assets/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://app.bridgesheet.app/assets/icon-80.png" />
-  <SupportUrl DefaultValue="https://app.bridgesheet.app/suporte" />
+  <IconUrl DefaultValue="https://scann-app-seven.vercel.app/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://scann-app-seven.vercel.app/icon-80.png" />
+  <SupportUrl DefaultValue="https://scann-app-seven.vercel.app/taskpane.html" />
   <AppDomains>
-    <AppDomain>https://app.bridgesheet.app</AppDomain>
-    <AppDomain>https://api.bridgesheet.app</AppDomain>
+    <AppDomain>https://scann-app-seven.vercel.app</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Workbook" />
   </Hosts>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://app.bridgesheet.app/taskpane.html" />
+    <SourceLocation DefaultValue="https://scann-app-seven.vercel.app/taskpane.html?api=https://scann-app-seven.vercel.app/v1" />
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
@@ -63,13 +62,13 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="icon16" DefaultValue="https://app.bridgesheet.app/assets/icon-16.png" />
-        <bt:Image id="icon32" DefaultValue="https://app.bridgesheet.app/assets/icon-32.png" />
-        <bt:Image id="icon80" DefaultValue="https://app.bridgesheet.app/assets/icon-80.png" />
+        <bt:Image id="icon16" DefaultValue="https://scann-app-seven.vercel.app/icon-16.png" />
+        <bt:Image id="icon32" DefaultValue="https://scann-app-seven.vercel.app/icon-32.png" />
+        <bt:Image id="icon80" DefaultValue="https://scann-app-seven.vercel.app/icon-80.png" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="residTaskpaneUrl" DefaultValue="https://app.bridgesheet.app/taskpane.html" />
-        <bt:Url id="residFunctionFile" DefaultValue="https://app.bridgesheet.app/commands.html" />
+        <bt:Url id="residTaskpaneUrl" DefaultValue="https://scann-app-seven.vercel.app/taskpane.html?api=https://scann-app-seven.vercel.app/v1" />
+        <bt:Url id="residFunctionFile" DefaultValue="https://scann-app-seven.vercel.app/commands.html" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="residGroupLabel" DefaultValue="BridgeSheet" />
