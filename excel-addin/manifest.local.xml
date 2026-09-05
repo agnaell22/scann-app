@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xsi:type="TaskPaneApp">
+  <Id>f1a9f7be-4d42-46e2-9f2d-0b4dcae4d07a</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>BridgeSheet (teste local)</ProviderName>
+  <DefaultLocale>pt-BR</DefaultLocale>
+  <DisplayName DefaultValue="BridgeSheet (teste local)" />
+  <Description DefaultValue="Versão local para testar o BridgeSheet sem publicação." />
+  <IconUrl DefaultValue="http://localhost:3000/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="http://localhost:3000/icon-80.png" />
+  <SupportUrl DefaultValue="http://localhost:3000/taskpane.html" />
+  <AppDomains>
+    <AppDomain>http://localhost:3000</AppDomain>
+  </AppDomains>
+  <Hosts>
+    <Host Name="Workbook" />
+  </Hosts>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="http://localhost:3000/taskpane.html?api=http://localhost:3000/v1" />
+  </DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+</OfficeApp>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BridgeSheet</title>
+  <link rel="stylesheet" href="taskpane.css">
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="brand">
+      <div class="mark">B</div>
+      <div>
+        <strong>BridgeSheet</strong>
+        <span>Entrada móvel para Excel</span>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="eyebrow">CÉLULA DE DESTINO</div>
+      <div id="active-cell" class="cell">Lendo seleção...</div>
+      <p class="muted">Selecione uma célula na planilha. O próximo valor recebido será escrito nela.</p>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">CONEXÃO</div>
+      <div class="connection-row">
+        <span id="status-dot" class="dot offline"></span>
+        <span id="connection-status">Aguardando aparelho</span>
+      </div>
+      <button id="pair-button" class="button primary">Gerar QR Code de pareamento</button>
+      <div id="pairing-code" class="pairing-code hidden"></div>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">ÚLTIMO VALOR</div>
+      <div id="last-value" class="last-value">Nenhum valor recebido</div>
+      <div id="last-time" class="muted"></div>
+    </section>
+
+    <p id="message" class="message" role="status"></p>
+    <footer>BridgeSheet 1.0 · Conexão segura HTTPS</footer>
+  </main>
+  <script src="taskpane.js"></script>
+</body>
+</html>

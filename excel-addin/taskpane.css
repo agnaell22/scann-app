@@ -1,0 +1,39 @@
+:root {
+  --ink: #18312d;
+  --muted: #60736f;
+  --line: #d8e2df;
+  --paper: #f6f8f6;
+  --panel: #ffffff;
+  --accent: #0d6b5b;
+  --accent-soft: #dceee9;
+  --warning: #bd7a26;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font: 14px/1.45 "Segoe UI", system-ui, sans-serif;
+}
+.shell { padding: 20px; max-width: 420px; margin: auto; }
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+.mark { display: grid; place-items: center; width: 34px; height: 34px; color: white; background: var(--accent); border-radius: 9px; font-size: 20px; font-weight: 700; }
+.brand strong, .brand span { display: block; }
+.brand strong { font-size: 17px; letter-spacing: .2px; }
+.brand span { color: var(--muted); font-size: 12px; }
+.panel { padding: 16px; margin-bottom: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.eyebrow { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+.cell { margin: 7px 0; font-size: 24px; font-weight: 700; }
+.muted { color: var(--muted); font-size: 12px; }
+.connection-row { display: flex; align-items: center; gap: 8px; margin: 10px 0 14px; font-weight: 600; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warning); }
+.dot.online { background: var(--accent); }
+.button { width: 100%; padding: 10px 12px; border: 0; border-radius: 6px; cursor: pointer; font: inherit; font-weight: 600; }
+.primary { color: white; background: var(--accent); }
+.primary:hover { filter: brightness(.94); }
+.pairing-code { margin-top: 12px; padding: 10px; color: var(--accent); background: var(--accent-soft); border-radius: 6px; font-family: monospace; text-align: center; word-break: break-all; }
+.hidden { display: none; }
+.last-value { margin: 7px 0 2px; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.message { min-height: 20px; color: var(--accent); font-size: 12px; }
+footer { margin-top: 26px; color: var(--muted); font-size: 11px; text-align: center; }
