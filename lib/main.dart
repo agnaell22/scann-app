@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -14,13 +13,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'BridgeSheet',
+      title: 'BridgeSheet Mobile',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF0D6B5B),
           brightness: Brightness.light,
         ),
-        scaffoldBackgroundColor: const Color(0xFFF5F7F5),
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
         useMaterial3: true,
       ),
       home: const BridgeSheetPage(),
@@ -38,9 +38,10 @@ class BridgeSheetPage extends StatefulWidget {
 class _BridgeSheetPageState extends State<BridgeSheetPage> {
   final _valueController = TextEditingController();
   final _endpointController = TextEditingController(
-    text: 'https://api.bridgesheet.app/v1/values',
+    text: 'http://192.168.100.4:3000/v1/values',
   );
-  String _selectedCell = 'Estoque!B14';
+  
+  String? _pairedToken;
   String _lastSent = 'Nenhum dado enviado ainda';
   bool _isSending = false;
 
@@ -51,51 +52,68 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
     super.dispose();
   }
 
-  Future<void> _scanCode() async {
-    final result = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const ScannerPage()),
-    );
-    if (result != null && result.isNotEmpty) {
-      setState(() => _valueController.text = result);
+  void _extractTokenFromQr(String rawCode) {
+    String token = rawCode.trim();
+    if (token.contains('token=')) {
+      final uri = Uri.tryParse(token);
+      if (uri != null && uri.queryParameters.containsKey('token')) {
+        token = uri.queryParameters['token']!;
+      } else {
+        final match = RegExp(r'token=([^&]+)').firstMatch(token);
+        if (match != null) token = match.group(1)!;
+      }
     }
+    setState(() => _pairedToken = token);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF0D6B5B),
+        content: Text('✓ Planilha pareada com sucesso! Token: $token'),
+      ),
+    );
   }
 
   Future<void> _pairDevice() async {
-    final paired = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Parear com a planilha'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.qr_code_2_rounded, size: 96),
-            SizedBox(height: 12),
-            Text(
-              'No suplemento BridgeSheet do Excel, abra Conectar aparelho e leia o QR Code exibido.',
-              textAlign: TextAlign.center,
-            ),
-          ],
+    try {
+      final scannedCode = await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          builder: (_) => const ScannerPage(title: 'Escanear QR Code do Excel'),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(context, true),
-            icon: const Icon(Icons.qr_code_scanner),
-            label: const Text('Ler QR Code'),
-          ),
-        ],
-      ),
-    );
-    if (paired == true && mounted) {
-      final token = await Navigator.of(context).push<String>(
-        MaterialPageRoute(builder: (_) => const ScannerPage()),
       );
-      if (token != null && mounted) {
+      if (scannedCode != null && scannedCode.isNotEmpty && mounted) {
+        _extractTokenFromQr(scannedCode);
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aparelho pareado com sucesso.')),
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text('Erro ao abrir leitor de QR Code: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _scanBarcode() async {
+    try {
+      final barcode = await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          builder: (_) => const ScannerPage(title: 'Escanear Código de Barras'),
+        ),
+      );
+      if (barcode != null && barcode.isNotEmpty && mounted) {
+        setState(() => _valueController.text = barcode);
+        if (_pairedToken != null) {
+          _sendValue();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text('Erro ao abrir leitor de câmera: $e'),
+          ),
         );
       }
     }
@@ -105,7 +123,14 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
     final value = _valueController.text.trim();
     if (value.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Digite ou leia um valor antes de enviar.')),
+        const SnackBar(content: Text('Digite ou escaneie um valor primeiro.')),
+      );
+      return;
+    }
+
+    if (_pairedToken == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Leia o QR Code do suplemento Excel antes de enviar.')),
       );
       return;
     }
@@ -116,7 +141,8 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
         Uri.parse(_endpointController.text.trim()),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'cell': _selectedCell,
+          'pairingId': _pairedToken,
+          'token': _pairedToken,
           'value': value,
           'source': 'android',
         }),
@@ -124,20 +150,24 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
       if (!mounted) return;
       if (response.statusCode >= 200 && response.statusCode < 300) {
         setState(() {
-          _lastSent = '$value -> $_selectedCell';
+          _lastSent = '$value → Enviado para Excel';
           _valueController.clear();
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Valor enviado para a planilha.')),
+          const SnackBar(
+            backgroundColor: Color(0xFF0D6B5B),
+            content: Text('✓ Valor enviado para o Excel com sucesso!'),
+          ),
         );
       } else {
         throw Exception('HTTP ${response.statusCode}');
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Não foi possível conectar à API. Verifique o endpoint.'),
+          backgroundColor: Colors.redAccent,
+          content: Text('Erro ao enviar para o Excel. Verifique o IP/Endpoint.'),
         ),
       );
     } finally {
@@ -147,122 +177,139 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isPaired = _pairedToken != null;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('BridgeSheet'),
+        backgroundColor: const Color(0xFF0D6B5B),
+        foregroundColor: Colors.white,
+        title: const Text('BridgeSheet Mobile', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             onPressed: _pairDevice,
-            tooltip: 'Parear aparelho',
-            icon: const Icon(Icons.qr_code_2_rounded),
+            tooltip: 'Parear com Excel',
+            icon: const Icon(Icons.qr_code_scanner_rounded),
           ),
         ],
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          padding: const EdgeInsets.all(20),
           children: [
-            Text(
-              'Envie dados para o Excel',
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'O suplemento define a célula. Você só informa o próximo valor.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 20),
-            _StatusCard(onPair: _pairDevice),
-            const SizedBox(height: 16),
+            // Status Card
             Card(
               elevation: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Destino atual', style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedCell,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.table_chart_outlined),
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const ['Estoque!B14', 'Pedidos!C8', 'Conferência!A2']
-                          .map((cell) => DropdownMenuItem(value: cell, child: Text(cell)))
-                          .toList(),
-                      onChanged: (value) => setState(
-                        () => _selectedCell = value ?? _selectedCell,
-                      ),
-                    ),
-                  ],
+              color: isPaired ? const Color(0xFFE6F4F1) : const Color(0xFFFEF3C7),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: isPaired ? const Color(0xFF0D6B5B).withOpacity(0.3) : const Color(0xFFF59E0B).withOpacity(0.3),
+                ),
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: CircleAvatar(
+                  backgroundColor: isPaired ? const Color(0xFF0D6B5B) : const Color(0xFFF59E0B),
+                  child: Icon(
+                    isPaired ? Icons.link_rounded : Icons.link_off_rounded,
+                    color: Colors.white,
+                  ),
+                ),
+                title: Text(
+                  isPaired ? 'Excel Conectado' : 'Aparelho Não Pareado',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  isPaired ? 'Token: $_pairedToken' : 'Toque no ícone de QR Code para ler o suplemento.',
+                ),
+                trailing: TextButton(
+                  onPressed: _pairDevice,
+                  child: Text(isPaired ? 'Re-parear' : 'Parear'),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+
+            // Value Input Card
             Card(
               elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Novo valor', style: Theme.of(context).textTheme.labelLarge),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _valueController,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        hintText: 'Digite ou leia um código',
-                        prefixIcon: const Icon(Icons.edit_note_rounded),
-                        suffixIcon: IconButton(
-                          onPressed: _scanCode,
-                          tooltip: 'Ler código de barras',
-                          icon: const Icon(Icons.qr_code_scanner),
-                        ),
-                        border: const OutlineInputBorder(),
+                    Text(
+                      'VALOR A BIPAR / INSERIR',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
                       ),
                     ),
                     const SizedBox(height: 12),
+                    TextField(
+                      controller: _valueController,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendValue(),
+                      decoration: InputDecoration(
+                        hintText: 'Digite ou escaneie o código...',
+                        prefixIcon: const Icon(Icons.barcode_reader),
+                        suffixIcon: IconButton(
+                          onPressed: _scanBarcode,
+                          tooltip: 'Abrir Leitor de Câmera',
+                          icon: const Icon(Icons.camera_alt_rounded, color: Color(0xFF0D6B5B)),
+                        ),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
+                      height: 48,
                       child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D6B5B),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
                         onPressed: _isSending ? null : _sendValue,
                         icon: _isSending
                             ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                               )
                             : const Icon(Icons.send_rounded),
-                        label: Text(_isSending ? 'Enviando...' : 'Enviar para $_selectedCell'),
+                        label: Text(
+                          _isSending ? 'Enviando...' : 'Enviar para o Excel',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+
+            // Last sent log
             ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-              leading: const Icon(Icons.history_rounded),
-              title: const Text('Último envio'),
-              subtitle: Text(_lastSent),
+              leading: const Icon(Icons.history_rounded, color: Color(0xFF0D6B5B)),
+              title: const Text('Último Envio'),
+              subtitle: Text(_lastSent, style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
+            const Divider(),
+
+            // Configuration Expansion
             ExpansionTile(
-              tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-              title: const Text('Configuração da API'),
+              title: const Text('Configuração da API / IP do PC'),
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                  padding: const EdgeInsets.all(12),
                   child: TextField(
                     controller: _endpointController,
                     decoration: const InputDecoration(
-                      labelText: 'Endpoint HTTPS',
+                      labelText: 'Endpoint da API (ex: http://192.168.1.50:3000/v1/values)',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -276,49 +323,111 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
   }
 }
 
-class _StatusCard extends StatelessWidget {
-  const _StatusCard({required this.onPair});
-
-  final VoidCallback onPair;
+class ScannerPage extends StatefulWidget {
+  const ScannerPage({super.key, required this.title});
+  final String title;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Card(
-      color: colors.primaryContainer,
-      elevation: 0,
-      child: ListTile(
-        contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-        leading: CircleAvatar(
-          backgroundColor: colors.primary,
-          child: Icon(Icons.link_rounded, color: colors.onPrimary),
-        ),
-        title: const Text(
-          'Nenhuma planilha conectada',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: const Text('Leia o QR Code do suplemento BridgeSheet'),
-        trailing: IconButton(
-          onPressed: onPair,
-          tooltip: 'Conectar',
-          icon: const Icon(Icons.arrow_forward_rounded),
-        ),
-      ),
-    );
-  }
+  State<ScannerPage> createState() => _ScannerPageState();
 }
 
-class ScannerPage extends StatelessWidget {
-  const ScannerPage({super.key});
+class _ScannerPageState extends State<ScannerPage> {
+  late final MobileScannerController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      returnImage: false,
+    );
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ler código')),
+      appBar: AppBar(
+        title: Text(widget.title),
+        backgroundColor: const Color(0xFF0D6B5B),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: ValueListenableBuilder(
+              valueListenable: controller,
+              builder: (context, state, child) {
+                if (state.torchState == TorchState.on) {
+                  return const Icon(Icons.flash_on, color: Colors.yellowAccent);
+                }
+                return const Icon(Icons.flash_off, color: Colors.white70);
+              },
+            ),
+            onPressed: () => controller.toggleTorch(),
+          ),
+          IconButton(
+            icon: ValueListenableBuilder(
+              valueListenable: controller,
+              builder: (context, state, child) {
+                switch (state.cameraDirection) {
+                  case CameraFacing.front:
+                    return const Icon(Icons.camera_front);
+                  case CameraFacing.back:
+                    return const Icon(Icons.camera_rear);
+                }
+              },
+            ),
+            onPressed: () => controller.switchCamera(),
+          ),
+        ],
+      ),
       body: MobileScanner(
+        controller: controller,
+        errorBuilder: (context, error, child) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.videocam_off_rounded, color: Colors.redAccent, size: 56),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Erro ao inicializar câmera: ${error.errorCode}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    error.errorDetails?.message ??
+                        'Certifique-se de que a permissão de câmera foi concedida no sistema.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: () => controller.start(),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Tentar Novamente'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
         onDetect: (capture) {
-          final value = capture.barcodes.firstOrNull?.rawValue;
-          if (value != null && value.isNotEmpty) Navigator.pop(context, value);
+          final barcodes = capture.barcodes;
+          for (final barcode in barcodes) {
+            final val = barcode.rawValue;
+            if (val != null && val.isNotEmpty) {
+              Navigator.pop(context, val);
+              break;
+            }
+          }
         },
       ),
     );

@@ -2,6 +2,7 @@
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
   xsi:type="TaskPaneApp">
   <Id>f1a9f7be-4d42-46e2-9f2d-0b4dcae4d07a</Id>
   <Version>1.0.0.0</Version>
@@ -22,4 +23,61 @@
     <SourceLocation DefaultValue="http://localhost:3000/taskpane.html?api=http://localhost:3000/v1" />
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Description resid="residDescription" />
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.1">
+        <bt:Set Name="ExcelApi" MinVersion="1.1" />
+      </bt:Sets>
+    </Requirements>
+    <Hosts>
+      <Host xsi:type="Workbook">
+        <DesktopFormFactor>
+          <FunctionFile resid="residFunctionFile" />
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="BridgeSheetGroup">
+                <Label resid="residGroupLabel" />
+                <Control xsi:type="Button" id="BridgeSheetOpenButton">
+                  <Label resid="residButtonLabel" />
+                  <Supertip>
+                    <Title resid="residButtonLabel" />
+                    <Description resid="residButtonDescription" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="icon16" />
+                    <bt:Image size="32" resid="icon32" />
+                    <bt:Image size="80" resid="icon80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>BridgeSheetTaskPane</TaskpaneId>
+                    <SourceLocation resid="residTaskpaneUrl" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="icon16" DefaultValue="http://localhost:3000/icon-16.png" />
+        <bt:Image id="icon32" DefaultValue="http://localhost:3000/icon-32.png" />
+        <bt:Image id="icon80" DefaultValue="http://localhost:3000/icon-80.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="residTaskpaneUrl" DefaultValue="http://localhost:3000/taskpane.html?api=http://localhost:3000/v1" />
+        <bt:Url id="residFunctionFile" DefaultValue="http://localhost:3000/commands.html" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="residGroupLabel" DefaultValue="BridgeSheet" />
+        <bt:String id="residButtonLabel" DefaultValue="Abrir BridgeSheet" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="residDescription" DefaultValue="Envie valores do celular para a célula selecionada no Excel." />
+        <bt:String id="residButtonDescription" DefaultValue="Abrir o painel BridgeSheet para conectar um aparelho." />
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
 </OfficeApp>

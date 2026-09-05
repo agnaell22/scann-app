@@ -36,10 +36,12 @@ const server = http.createServer(async (request, response) => {
     response.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     });
     return response.end();
   }
 
+  // Create new pairing session
   if (request.method === 'POST' && request.url === '/v1/pairings') {
     const pairingId = `local_${randomUUID()}`;
     pairings.set(pairingId, { value: null });
@@ -49,6 +51,7 @@ const server = http.createServer(async (request, response) => {
     });
   }
 
+  // Excel Add-in polling endpoint
   const inboxMatch = request.url.match(/^\/v1\/pairings\/([^/]+)\/inbox$/);
   if (request.method === 'GET' && inboxMatch) {
     const pairing = pairings.get(inboxMatch[1]);
@@ -62,25 +65,38 @@ const server = http.createServer(async (request, response) => {
     return sendJson(response, 200, { value, receivedAt: new Date().toISOString() });
   }
 
-  if (request.method === 'POST' && request.url === '/v1/test-value') {
+  // Submit new barcode / scanned value (from test or Flutter app)
+  if (request.method === 'POST' && (request.url === '/v1/test-value' || request.url === '/v1/values')) {
     const data = await body(request);
-    const pairing = pairings.get(data.pairingId);
-    if (!pairing) return sendJson(response, 404, { error: 'Pairing not found' });
+    const pId = data.pairingId || data.token;
+    
+    // Find pairing by exact match or first active pairing if single test
+    let pairing = pairings.get(pId);
+    if (!pairing && pairings.size === 1 && !pId) {
+      pairing = pairings.values().next().value;
+    }
+    
+    if (!pairing) return sendJson(response, 404, { error: `Pairing not found for ID: ${pId}` });
     pairing.value = String(data.value ?? '');
-    return sendJson(response, 202, { accepted: true });
+    return sendJson(response, 202, { accepted: true, value: pairing.value });
   }
 
+  // Serve static files (taskpane.html, taskpane.js, qrcode.min.js, icons, etc.)
   const requestedPath = new URL(request.url, 'http://localhost').pathname;
   const filePath = path.join(root, requestedPath === '/' ? 'taskpane.html' : requestedPath);
   if (!filePath.startsWith(root) || !fs.existsSync(filePath)) {
     response.writeHead(404);
     return response.end('Not found');
   }
-  response.writeHead(200, { 'Content-Type': mimeTypes[path.extname(filePath)] || 'application/octet-stream' });
+  response.writeHead(200, {
+    'Content-Type': mimeTypes[path.extname(filePath)] || 'application/octet-stream',
+    'Access-Control-Allow-Origin': '*',
+  });
   fs.createReadStream(filePath).pipe(response);
 });
 
-server.listen(port, 'localhost', () => {
-  console.log(`BridgeSheet local server: http://localhost:${port}`);
-  console.log('Mock API ready at http://localhost:3000/v1');
+server.listen(port, '0.0.0.0', () => {
+  console.log(`BridgeSheet local server running at http://localhost:${port}`);
+  console.log(`Accessible on local network at http://0.0.0.0:${port}`);
+  console.log(`Mock API ready at http://localhost:${port}/v1`);
 });
