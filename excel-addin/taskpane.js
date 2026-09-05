@@ -2,6 +2,7 @@
 const API_BASE = new URLSearchParams(window.location.search).get('api')
   || 'http://localhost:3000/v1';
 const POLL_INTERVAL_MS = 2000;
+const SAVED_PAIRING_KEY = 'bridgesheet_pairing_id';
 
 let pairingId = null;
 let pollTimer = null;
@@ -15,9 +16,38 @@ Office.onReady(async (info) => {
   }
 
   await refreshActiveCell();
+  await restoreSavedPairing();
   document.getElementById('pair-button').addEventListener('click', createPairing);
   setInterval(refreshActiveCell, 1500);
 });
+
+async function restoreSavedPairing() {
+  const savedPairingId = localStorage.getItem(SAVED_PAIRING_KEY);
+  if (!savedPairingId) return;
+
+  pairingId = savedPairingId;
+  document.getElementById('connection-status').textContent = 'Conectando...';
+  document.getElementById('status-dot').className = 'status-dot warning';
+  showMessage('Dispositivo conectado anteriormente. Restaurando conexão...', 'info');
+  startPolling();
+}
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollForValue, POLL_INTERVAL_MS);
+}
+
+function clearSavedPairing() {
+  pairingId = null;
+  localStorage.removeItem(SAVED_PAIRING_KEY);
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+  document.getElementById('connection-status').textContent = 'Desconectado';
+  document.getElementById('status-dot').className = 'status-dot offline';
+  document.getElementById('connection-pill').classList.remove('connected');
+}
 
 async function refreshActiveCell() {
   try {
@@ -53,6 +83,7 @@ async function createPairing() {
 
     const data = await response.json();
     pairingId = data.pairingId;
+    localStorage.setItem(SAVED_PAIRING_KEY, pairingId);
 
     // Render QR Code Image
     const qrContainer = document.getElementById('qrcode');
@@ -73,8 +104,7 @@ async function createPairing() {
     
     showMessage('Escaneie o QR Code no app BridgeSheet para iniciar.', 'info');
 
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(pollForValue, POLL_INTERVAL_MS);
+    startPolling();
   } catch (error) {
     showMessage('Erro ao conectar à API local. Verifique se o servidor está rodando.', 'error');
   } finally {
@@ -93,7 +123,17 @@ async function pollForValue() {
 
   try {
     const response = await fetch(`${API_BASE}/pairings/${encodeURIComponent(pairingId)}/inbox`);
-    if (response.status === 204) return;
+    if (response.status === 204) {
+      document.getElementById('connection-status').textContent = 'Conectado';
+      document.getElementById('status-dot').className = 'status-dot online';
+      document.getElementById('connection-pill').classList.add('connected');
+      return;
+    }
+    if (response.status === 404) {
+      clearSavedPairing();
+      showMessage('A conexão salva expirou. Gere um novo QR Code para conectar.', 'error');
+      return;
+    }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const item = await response.json();

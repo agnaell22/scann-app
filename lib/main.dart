@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MyApp());
@@ -36,14 +38,36 @@ class BridgeSheetPage extends StatefulWidget {
 }
 
 class _BridgeSheetPageState extends State<BridgeSheetPage> {
+  static const _pairedTokenKey = 'bridgesheet_paired_token';
+  static const _endpointKey = 'bridgesheet_api_endpoint';
+
   final _valueController = TextEditingController();
   final _endpointController = TextEditingController(
     text: 'https://scann-app-seven.vercel.app/v1/values',
   );
-  
+
   String? _pairedToken;
   String _lastSent = 'Nenhum dado enviado ainda';
   bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedConnection();
+  }
+
+  Future<void> _loadSavedConnection() async {
+    final preferences = await SharedPreferences.getInstance();
+    if (!mounted) return;
+
+    setState(() {
+      _pairedToken = preferences.getString(_pairedTokenKey);
+      final savedEndpoint = preferences.getString(_endpointKey);
+      if (savedEndpoint != null && savedEndpoint.isNotEmpty) {
+        _endpointController.text = savedEndpoint;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -64,11 +88,28 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
       }
     }
     setState(() => _pairedToken = token);
+    _saveConnection(token);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: const Color(0xFF0D6B5B),
         content: Text('✓ Planilha pareada com sucesso! Token: $token'),
       ),
+    );
+  }
+
+  Future<void> _saveConnection(String token) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_pairedTokenKey, token);
+    await preferences.setString(_endpointKey, _endpointController.text.trim());
+  }
+
+  Future<void> _forgetConnection() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(_pairedTokenKey);
+    if (!mounted) return;
+    setState(() => _pairedToken = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Dispositivo desconectado.')),
     );
   }
 
@@ -130,7 +171,9 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
 
     if (_pairedToken == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Leia o QR Code do suplemento Excel antes de enviar.')),
+        const SnackBar(
+            content:
+                Text('Leia o QR Code do suplemento Excel antes de enviar.')),
       );
       return;
     }
@@ -167,7 +210,8 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: Colors.redAccent,
-          content: Text('Erro ao enviar para o Excel. Verifique o IP/Endpoint.'),
+          content:
+              Text('Erro ao enviar para o Excel. Verifique o IP/Endpoint.'),
         ),
       );
     } finally {
@@ -184,12 +228,15 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0D6B5B),
         foregroundColor: Colors.white,
-        title: const Text('BridgeSheet Mobile', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('BridgeSheet Mobile',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            onPressed: _pairDevice,
+            onPressed: isPaired ? _forgetConnection : _pairDevice,
             tooltip: 'Parear com Excel',
-            icon: const Icon(Icons.qr_code_scanner_rounded),
+            icon: Icon(isPaired
+                ? Icons.link_off_rounded
+                : Icons.qr_code_scanner_rounded),
           ),
         ],
       ),
@@ -200,17 +247,23 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
             // Status Card
             Card(
               elevation: 0,
-              color: isPaired ? const Color(0xFFE6F4F1) : const Color(0xFFFEF3C7),
+              color:
+                  isPaired ? const Color(0xFFE6F4F1) : const Color(0xFFFEF3C7),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
                 side: BorderSide(
-                  color: isPaired ? const Color(0xFF0D6B5B).withOpacity(0.3) : const Color(0xFFF59E0B).withOpacity(0.3),
+                  color: isPaired
+                      ? const Color(0xFF0D6B5B).withOpacity(0.3)
+                      : const Color(0xFFF59E0B).withOpacity(0.3),
                 ),
               ),
               child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 leading: CircleAvatar(
-                  backgroundColor: isPaired ? const Color(0xFF0D6B5B) : const Color(0xFFF59E0B),
+                  backgroundColor: isPaired
+                      ? const Color(0xFF0D6B5B)
+                      : const Color(0xFFF59E0B),
                   child: Icon(
                     isPaired ? Icons.link_rounded : Icons.link_off_rounded,
                     color: Colors.white,
@@ -221,7 +274,9 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 subtitle: Text(
-                  isPaired ? 'Token: $_pairedToken' : 'Toque no ícone de QR Code para ler o suplemento.',
+                  isPaired
+                      ? 'Token: $_pairedToken'
+                      : 'Toque no ícone de QR Code para ler o suplemento.',
                 ),
                 trailing: TextButton(
                   onPressed: _pairDevice,
@@ -234,7 +289,8 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
             // Value Input Card
             Card(
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
               child: Padding(
                 padding: const EdgeInsets.all(18),
                 child: Column(
@@ -258,9 +314,11 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
                         suffixIcon: IconButton(
                           onPressed: _scanBarcode,
                           tooltip: 'Abrir Leitor de Câmera',
-                          icon: const Icon(Icons.camera_alt_rounded, color: Color(0xFF0D6B5B)),
+                          icon: const Icon(Icons.camera_alt_rounded,
+                              color: Color(0xFF0D6B5B)),
                         ),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -270,19 +328,22 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF0D6B5B),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                         onPressed: _isSending ? null : _sendValue,
                         icon: _isSending
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2),
                               )
                             : const Icon(Icons.send_rounded),
                         label: Text(
                           _isSending ? 'Enviando...' : 'Enviar para o Excel',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -294,9 +355,11 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
 
             // Last sent log
             ListTile(
-              leading: const Icon(Icons.history_rounded, color: Color(0xFF0D6B5B)),
+              leading:
+                  const Icon(Icons.history_rounded, color: Color(0xFF0D6B5B)),
               title: const Text('Último Envio'),
-              subtitle: Text(_lastSent, style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(_lastSent,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
             const Divider(),
 
@@ -308,8 +371,12 @@ class _BridgeSheetPageState extends State<BridgeSheetPage> {
                   padding: const EdgeInsets.all(12),
                   child: TextField(
                     controller: _endpointController,
+                    onChanged: (_) {
+                      if (_pairedToken != null) _saveConnection(_pairedToken!);
+                    },
                     decoration: const InputDecoration(
-                      labelText: 'Endpoint da API (ex: http://192.168.1.50:3000/v1/values)',
+                      labelText:
+                          'Endpoint da API (ex: http://192.168.1.50:3000/v1/values)',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -351,6 +418,26 @@ class _ScannerPageState extends State<ScannerPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
+          backgroundColor: const Color(0xFF0D6B5B),
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Leitura pela câmera não está disponível no Windows. '
+              'Abra o aplicativo em um dispositivo Android, iPhone ou navegador compatível.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
@@ -378,6 +465,10 @@ class _ScannerPageState extends State<ScannerPage> {
                     return const Icon(Icons.camera_front);
                   case CameraFacing.back:
                     return const Icon(Icons.camera_rear);
+                  case CameraFacing.external:
+                    return const Icon(Icons.camera);
+                  case CameraFacing.unknown:
+                    return const Icon(Icons.camera_alt);
                 }
               },
             ),
@@ -387,19 +478,21 @@ class _ScannerPageState extends State<ScannerPage> {
       ),
       body: MobileScanner(
         controller: controller,
-        errorBuilder: (context, error, child) {
+        errorBuilder: (context, error) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.videocam_off_rounded, color: Colors.redAccent, size: 56),
+                  const Icon(Icons.videocam_off_rounded,
+                      color: Colors.redAccent, size: 56),
                   const SizedBox(height: 16),
                   Text(
                     'Erro ao inicializar câmera: ${error.errorCode}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text(

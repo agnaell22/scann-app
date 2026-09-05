@@ -30,7 +30,9 @@ Resposta `200`:
 }
 ```
 
-O `qrPayload` deve conter um token de uso único, com expiração curta e vínculo à sessão do Excel.
+O `qrPayload` deve conter o token persistente do dispositivo. O suplemento salva o `pairingId` em `localStorage` e restaura a conexão automaticamente ao abrir outra planilha no mesmo ambiente do Excel.
+
+Ao gerar um novo QR Code, o vínculo anterior é substituído. Se a sessão expirar ou for removida pelo servidor, será necessário parear novamente.
 
 ### Consultar caixa de entrada
 
